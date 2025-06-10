@@ -4,6 +4,8 @@ import flet.canvas as cv
 import numpy as np
 from flet_math import Math
 from scipy.optimize import fsolve
+from sko.GA import GA
+
 
 class Solver:
     def __init__(self):
@@ -25,7 +27,10 @@ class Solver:
         
         已知无量纲参数反求速度三角形
 
-        Return: 完整速度参数: Str, Str
+        Return: 
+        
+        完整速度参数
+        str: str
 
         -------
         参数：
@@ -83,7 +88,7 @@ class Solver:
 
         Return: 
 
-        str
+        str: str
 
         -------
         参数:
@@ -166,6 +171,133 @@ class Solver:
             'u': u,
             'ideal_work': ideal_work / 1000  # kJ/kg
         }
+    
+    def calc_efficiency(
+        self, 
+        triangle: str, 
+        aspect_ratio: float,
+        parmas: str,
+    ) -> float:
+        """效率计算
+        
+        通过半经验损失模型计算效率
+
+        \begin{align*}
+        \eta &= \frac{2\psi\eta_{\delta}}{\varphi^2\left[\left(\frac{1}{\zeta_r^2} - 1\right) + \left(\frac{V_{1a}}{V_{2a}}\right)^2\left(\frac{1}{\zeta_s^2} - 1\right)\right] + \frac{\psi^2}{4}\left(\frac{1}{\zeta_r^2} + \frac{1}{\zeta_s^2} - 2\right) + \psi\left\{(1 - \Omega)\left(\frac{1}{\zeta_s^2} - 1\right) + \left[\bar{D}_{2m} - (1 - \Omega)\right]\left(\frac{1}{\zeta_r^2} - 1\right) + 2\right\}} \\
+        &\quad + \left[\bar{D}_{2m} - (1 - \Omega)\right]^2 + \left(\frac{1}{\zeta_r^2} - 1\right) + (1 - \Omega)^2\left(\frac{1}{\zeta_s^2} - 1\right)
+        \end{align*}
+
+        Return:
+
+        \yta: 效率
+
+        ------
+        参数：
+
+        triangle: 反计算出的速度三角形参数
+
+        """
+        def cot(value: float) -> float:
+            if value != 0:
+                return 1 / math.tan(value)
+            else:
+                return
+
+        beta_1, beta_2, v_1_a, v_2_a= triangle['beta_1'], triangle['beta_2'], triangle['v_1_a'], triangle['v_2_a']
+        print(beta_1, beta_2)
+        varphi, psi, omega, d_ratio = parmas['varphi'], parmas['psi'], parmas['omega'], parmas['d_ratio']
+
+        # 计算 Kp1 与 Kp2
+        if beta_1 + beta_2 < 90:
+            K_p_1 = math.sin(math.radians(beta_1)) * math.sin(math.radians(beta_1 + beta_2))
+            K_p_2 = math.sin(math.radians(beta_1))
+        elif beta_1 <= 90:
+            K_p_1 = math.sin(math.radians(beta_1)) / math.sin(math.radians(beta_1 + beta_2))
+            K_p_2 = math.sin(math.radians(beta_1))
+        else:
+            K_p_1 = 1 / (math.sin(math.radians(beta_1)) * math.sin(math.radians(beta_1 + beta_2)))
+            K_p_2 = 1 / math.sin(math.radians(beta_1))
+
+        # 计算叶型能量损失系数 \xi_p
+
+        xi_denominator = (0.09 * K_p_1 / math.sin(math.radians(beta_2)) + 0.46) * (K_p_2 - math.sin(math.radians(beta_2))) + 0.085
+        xi_p = 0.003 / xi_denominator + 0.017 if xi_denominator != 0 else 0.0
+
+        # 判断展弦比修正系数 K_s, 展弦比(Aspect ratio) $(\frac{h}{b})_2$
+        if aspect_ratio >= 2:
+            K_s = 1
+        else:
+            K_s = 1 - 0.25 * math.sqrt(2 - aspect_ratio)
+
+        # 计算二次流能量损失系数 \xi_s
+        xi_s = 0.0474 * (math.sin(math.radians(beta_2)) / math.sin(math.radians(beta_1))) * \
+            ((cot(math.radians(beta_1)) + cot(math.radians(beta_2))) / aspect_ratio) * K_s + 0.0118
+        
+        # 计算速度损失系数 \zeta_r, \zeta_s
+        zeta_r = math.sqrt(1 - (xi_p + xi_s))
+        zeta_s = zeta_r
+
+        # 计算效率（半经验损失模型）\eta
+
+        term_1 = varphi**2 * ((1 / zeta_r**2 - 1) + ((v_1_a/v_2_a)**2) * (1 / zeta_s**2 - 1))
+        term_2 = (psi**2 / 4) * (1 / zeta_r**2 + 1 / zeta_s**2 - 2)
+        term_3 = psi * ((1 - omega) * (1 / zeta_s**2 - 1) + (d_ratio - (1 - omega)) * (1 / zeta_r**2 - 1) + 2)
+        term_4 = (d_ratio - (1 - omega))**2 + (1 / zeta_r**2 -1) + (1 - omega)**2 * (1 / zeta_r**2 - 1)
+        eta_denominator = term_1 + term_2 + term_3 + term_4
+        print(term_1, term_2, term_3, term_4)
+        # 静叶速度系数 \eta_\delta 理想无损失时为 1
+        eta_delta = 1
+
+        if eta_denominator == 0:
+            return 0.0
+        efficiency = (2 * psi) * eta_delta / eta_denominator
+
+        return efficiency
+    
+    def problem4search(self, parameter):
+        psi, varphi, omega, K = parameter
+        parmas = {
+            'psi': psi,
+            'varphi': varphi,
+            'omega': omega,
+            'K': K,
+            'd_ratio': 1
+        }
+        u = 200
+        triangle = self.solve_inverse_problem(psi, varphi, omega, K, 1, u)
+        return -self.calc_efficiency(triangle=triangle, aspect_ratio=1, parmas=parmas)
+
+    def search_params(self) -> str:
+        
+        ga = GA(
+            func=self.problem4search,
+            n_dim=4,
+            size_pop=50,
+            max_iter=800,
+            prob_mut=0.001,
+            # psi, varphi, omega, K, D_ratio
+            lb=[1.5, 0.4, 0.3, 0.9],
+            ub=[2, 0.8, 0.5, 1.1],
+            precision=1e-7
+        )
+
+        best_x, best_y = ga.run()
+        # best_psi, best_varphi, best_omega, best_K, best_D_ratio = ga.run()
+        # best_params = {                
+        #     'psi': best_psi,
+        #     'varphi': best_varphi,
+        #     'omega': best_omega,
+        #     'd_ratio': best_D_ratio,
+        # }
+        # triangle = self.solve_inverse_problem(best_psi, best_varphi, best_omega, best_K, best_D_ratio)
+        # effcience = self.calc_efficiency(triangle=triangle, aspect_ratio=1, parmas=best_params)
+
+        # print(best_params, effcience)
+
+        print(best_x, '\n', best_y)
+
+
+    
         
 
 def main(page: ft.Page):
@@ -431,7 +563,17 @@ def main(page: ft.Page):
             triangle['v_1_u'] = v_1_u_slider.value
             triangle['v_2_u'] = v_2_u_slider.value
 
-        
+            params = {
+                'psi': psi,
+                'varphi': varphi,
+                'omega': omega,
+                'd_ratio': D_ratio,
+            }
+
+            efficiency = solver.calc_efficiency(triangle=triangle, aspect_ratio=1, parmas=params)
+
+
+
             # 清除画布
             draw.shapes.clear()
 
@@ -442,13 +584,15 @@ def main(page: ft.Page):
             
             # 绘制出口速度三角形
             draw_triangle(draw, triangle, 300, 350, 0.5, "出口速度三角形", False)
-            
+
+            search_params_btn =ft.ElevatedButton("开始搜索参数", on_click=lambda _: solver.search_params())
+    
             # 更新计算结果
             results.controls.clear()
             results.controls.append(ft.Text("计算结果:", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700))
             
             results.controls.append(ft.Row([
-                ft.Text("入口绝对速度 (C1):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text("入口绝对速度 (V1):", width=200, weight=ft.FontWeight.BOLD),
                 ft.Text(f"{triangle['v_1']:.1f} m/s")
             ]))
             
@@ -470,7 +614,7 @@ def main(page: ft.Page):
             results.controls.append(ft.Divider(height=10))
             
             results.controls.append(ft.Row([
-                ft.Text("出口绝对速度 (C2):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text("出口绝对速度 (V2):", width=200, weight=ft.FontWeight.BOLD),
                 ft.Text(f"{triangle['v_2']:.1f} m/s")
             ]))
             
@@ -488,6 +632,13 @@ def main(page: ft.Page):
                 ft.Text("出口相对气流角 (β2):", width=200, weight=ft.FontWeight.BOLD),
                 ft.Text(f"{triangle['beta_2']:.1f}°")
             ]))
+
+            results.controls.append(ft.Row([
+                ft.Text("效率( \eta):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{efficiency:.1f}%")
+            ]))
+
+            results.controls.append(search_params_btn)
             
             results.controls.append(ft.Divider(height=10))
 
@@ -565,7 +716,6 @@ def main(page: ft.Page):
     calculate_btn = ft.ElevatedButton("计算速度三角形", on_click=update_canvas)
     performance_btn = ft.ElevatedButton("计算性能参数", on_click=calculate_performance)
     
-    
     # 添加滑块事件处理
     u_slider.on_change = update_canvas
     
@@ -590,7 +740,7 @@ def main(page: ft.Page):
 
 ### 反问题
 给定无量纲参数计算速度分量：
-- $V_{2a} = φ × U$
+- $V_{2a} = φ \times U$
 - $V_{1a} = K × V_{2a}$
 - $V_{1u} = U × [2(1-ω) + ψ] / 2$
 - $V_{2u} = U × [2(1-ω) - ψ] / 2$
