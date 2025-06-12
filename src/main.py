@@ -1,11 +1,7 @@
 import flet as ft
 import math
 import flet.canvas as cv
-import numpy as np
-import pandas as pd
-from flet_math import Math
-from scipy.optimize import fsolve
-import matplotlib.pyplot as plt
+from flet.matplotlib_chart import MatplotlibChart
 from solver import Solver
 
  
@@ -108,7 +104,8 @@ def main(page: ft.Page):
     )
     
     # 计算结果文本
-    results = ft.Column(expand=True, spacing=10, width=1000, height=800)
+    results = ft.Column(expand=True, spacing=10, height=800)
+    search_result = ft.Column(expand=True, spacing=10, height=1000)
     performance_results = ft.Column(expand=True, spacing=8)
     
     def draw_triangle(
@@ -249,7 +246,89 @@ def main(page: ft.Page):
             ]
         )
         
-    
+    def get_search_result():
+        best_x, best_y, fig = solver.search_params(solver.search_params_GA)
+        method = "差分进化" if solver.search_params_DE else "粒子群优化"
+        best_psi, best_varphi, best_omega, best_k = best_x
+
+        search_result.controls.clear()
+        search_result.controls.extend([
+            ft.Text("搜索结果:", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+            ft.Row([
+                ft.Text("搜索算法:", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{method}")]),
+            ft.Row([
+                ft.Text("最优载荷系数(psi):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{best_psi:.3f}")]),
+            ft.Row([
+                ft.Text("最优流量系数 (varphi):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{best_varphi:.3f}")]),
+            ft.Row([
+                ft.Text("最优反力度(omega):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{best_omega:.3f}")]),
+            ft.Row([
+                ft.Text("最优轴向速比(K):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{best_k:.3f}")]),
+            ft.Row([
+                ft.Text("最优效率:", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{-best_y[0]*100:.2f}%")]),  
+            ft.Row([
+                ft.TextButton("一键填入当前值", on_click=lambda _: get_search_result(), width=200)])
+        ])
+
+        # print(f"Best params: psi={best_psi}, varphi={best_varphi}, omega={best_omega}, k={best_k}, efficiency={-best_y[0]*100:.2f}%")
+        page.update()
+
+    def get_calc_result(triangle, efficiency):
+        # 更新计算结果
+        results.controls.clear()
+        results.controls.extend([
+            ft.Text("计算结果:", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+            ft.Row([
+                ft.Text("入口绝对速度 (V1):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{triangle['v_1']:.1f} m/s")
+            ]),
+            ft.Row([
+                ft.Text("入口绝对气流角 (α1):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{triangle['alpha_1']:.1f}°")
+            ]),
+            ft.Row([
+                ft.Text("入口相对速度 (W1):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{triangle['w_1']:.1f} m/s")
+            ]),
+            ft.Row([
+                ft.Text("入口相对气流角 (β1):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{triangle['beta_1']:.1f}°")
+            ]),
+            ft.Divider(height=10),
+            ft.Row([
+                ft.Text("出口绝对速度 (V2):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{triangle['v_2']:.1f} m/s")
+            ]),
+            ft.Row([
+                ft.Text("出口绝对气流角 (α2):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{triangle['alpha_2']:.1f}°")
+            ]),
+            ft.Row([
+                ft.Text("出口相对速度 (W2):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{triangle['w_2']:.1f} m/s")
+            ]),
+            ft.Row([
+                ft.Text("出口相对气流角 (β2):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{triangle['beta_2']:.1f}°")
+            ]),
+            ft.Row([
+                ft.Text("轮缘速度 (U):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{triangle['u']:.1f} m/s")
+            ]),
+            ft.Row([
+                ft.Text("效率( \eta):", width=200, weight=ft.FontWeight.BOLD),
+                ft.Text(f"{efficiency*100:.2f}%")
+            ]),
+        ])
+
+        page.update()
+
     def update_canvas(e):
         """更新画布和计算结果"""
         # 更新入口速度三角形
@@ -294,72 +373,13 @@ def main(page: ft.Page):
             # 绘制出口速度三角形
             draw_triangle(draw, triangle, 300, 350, 0.5, "出口速度三角形", False)
 
-            search_params_btn =ft.ElevatedButton("开始搜索参数", on_click=lambda _: solver.search_params(solver.search_params_DE))
-    
-            # 更新计算结果
-            results.controls.clear()
-            results.controls.append(ft.Text("计算结果:", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700))
-            
-            results.controls.append(ft.Row([
-                ft.Text("入口绝对速度 (V1):", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{triangle['v_1']:.1f} m/s")
-            ]))
-            
-            results.controls.append(ft.Row([
-                ft.Text("入口绝对气流角 (α1):", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{triangle['alpha_1']:.1f}°")
-            ]))
-            
-            results.controls.append(ft.Row([
-                ft.Text("入口相对速度 (W1):", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{triangle['w_1']:.1f} m/s")
-            ]))
-            
-            results.controls.append(ft.Row([
-                ft.Text("入口相对气流角 (β1):", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{triangle['beta_1']:.1f}°")
-            ]))
-            
-            results.controls.append(ft.Divider(height=10))
-            
-            results.controls.append(ft.Row([
-                ft.Text("出口绝对速度 (V2):", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{triangle['v_2']:.1f} m/s")
-            ]))
-            
-            results.controls.append(ft.Row([
-                ft.Text("出口绝对气流角 (α2):", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{triangle['alpha_2']:.1f}°")
-            ]))
-        
-            results.controls.append(ft.Row([
-                ft.Text("出口相对速度 (W2):", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{triangle['w_2']:.1f} m/s")
-            ]))
-            
-            results.controls.append(ft.Row([
-                ft.Text("出口相对气流角 (β2):", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{triangle['beta_2']:.1f}°")
-            ]))
+            get_calc_result(triangle, efficiency)
 
-            results.controls.append(ft.Row([
-                ft.Text("轮缘速度 (U):", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{triangle['u']:.1f} m/s")
-            ]))
-
-            results.controls.append(ft.Row([
-                ft.Text("效率( \eta):", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{efficiency*100:.2f}%")
-            ]))
-
+            search_params_btn =ft.ElevatedButton("开始搜索参数", on_click=lambda _: get_search_result())
             results.controls.append(search_params_btn)
-            
-            results.controls.append(ft.Divider(height=10))
 
             page.update()
         
-            
-
         except Exception as ex:
             print(f"Error: {ex}")
 
@@ -516,7 +536,15 @@ def main(page: ft.Page):
                             padding=15,
                             bgcolor=ft.Colors.GREY_100,
                             border_radius=10,
-                            height=400,
+                            height=500,
+                        ),
+                        ft.Divider(),
+                        ft.Container(
+                            content=search_result,
+                            padding=15,
+                            bgcolor=ft.Colors.GREY_100,
+                            border_radius=10,
+                            height=200
                         ),
                         ft.Divider(),
                         ft.Container(

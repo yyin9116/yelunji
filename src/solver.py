@@ -369,6 +369,7 @@ class Solver:
         fig, ax = plt.subplots(2, 1)
         ax[0].plot(Y_history.index, Y_history.values, '.', color='red')
         Y_history.min(axis=1).cummin().plot(kind='line')
+
         plt.show()
 
         print(f'最优参数组合: {best_x}\n最优效率: {-best_y[0]*100:.2f}%')
@@ -444,7 +445,6 @@ class Solver:
 
     def search_params(self, func):
         best_x, best_y = func()
-        best_psi, best_varphi, best_omega, best_k = best_x
-        print(best_psi, best_varphi, best_omega, best_k)
+        return best_x, best_y
 
    
