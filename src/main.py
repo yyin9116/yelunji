@@ -57,52 +57,7 @@ def main(page: ft.Page):
     draw = canvas.content
     
     
-    # 参数滑块
-    u_slider = ft.Slider(
-        min=100, 
-        max=600, 
-        divisions=50, 
-        label="轮缘速度 (U): {value} m/s",
-        value=u,
-        expand=True
-    )
-    
-    v_1_a_slider = ft.Slider(
-        min=100, 
-        max=500, 
-        divisions=40, 
-        label="入口轴向速度 (v_1_a): {value} m/s",
-        value=v_1_a,
-        expand=True
-    )
-    
-    v_1_u_slider = ft.Slider(
-        min=-200, 
-        max=400, 
-        divisions=60, 
-        label="入口切向速度 (v_1_u): {value} m/s",
-        value=v_1_u,
-        expand=True
-    )
-    
-    v_2_a_slider = ft.Slider(
-        min=100, 
-        max=500, 
-        divisions=40, 
-        label="出口轴向速度 (v_2_a): {value} m/s",
-        value=v_2_a,
-        expand=True
-    )
-    
-    v_2_u_slider = ft.Slider(
-        min=-400, 
-        max=200, 
-        divisions=60, 
-        label="出口切向速度 (v_2_u): {value} m/s",
-        value=v_2_u,
-        expand=True
-    )
-    
+
     # 计算结果文本
     results = ft.Column(expand=True, spacing=10, height=800)
     search_result = ft.Column(expand=True, spacing=10, height=1000)
@@ -125,25 +80,25 @@ def main(page: ft.Page):
             [
                 # 绘制轮缘速度 (U)
                 cv.Line(
-                    x, y, 
-                    x + triangle['u'] * visual_scale, y, 
+                    x + triangle['v_1_u' if is_inlet else 'v_2_u'] * visual_scale, y + triangle['w_1_a' if is_inlet else 'w_2_a'] * visual_scale, 
+                    x + triangle['v_1_u' if is_inlet else 'v_2_u'] * visual_scale  - triangle['u'] * visual_scale, y + triangle['w_1_a' if is_inlet else 'w_2_a'] * visual_scale, 
                     ft.Paint(color=ft.Colors.RED, stroke_width=3)
                 ),
-            
+             
                 
                 # 绘制绝对速度 (C)
                 cv.Line(
                     x, y, 
                     x + triangle['v_1_u' if is_inlet else 'v_2_u'] * visual_scale, 
-                    y - triangle['v_1_a' if is_inlet else 'v_2_a'] * visual_scale, 
+                    y + triangle['v_1_a' if is_inlet else 'v_2_a'] * visual_scale, 
                     ft.Paint(color=ft.Colors.BLUE, stroke_width=3)
                 ),
                 
                 # 绘制相对速度 (W)
                 cv.Line(
-                    x + triangle['u'] * visual_scale, y, 
-                    x + triangle['v_1_u' if is_inlet else 'v_2_u'] * visual_scale, 
-                    y - triangle['v_1_a' if is_inlet else 'v_2_a'] * visual_scale, 
+                    x, y, 
+                    x - triangle['v_1_u' if is_inlet else 'v_2_u'] * visual_scale, 
+                    y + triangle['v_1_a' if is_inlet else 'v_2_a'] * visual_scale, 
                     ft.Paint(color=ft.Colors.GREEN, stroke_width=3)
                 ),
                 
@@ -345,12 +300,63 @@ def main(page: ft.Page):
             # 反问题求解
             triangle = solver.solve_inverse_problem(psi, varphi, omega, K, D_ratio)
 
-            u = triangle['u']
-            # triangle['u'] = u_slider.value
-            # triangle['v_1_a'] = v_1_a_slider.value
-            # triangle['v_2_a'] = v_2_a_slider.value
-            # triangle['v_1_u'] = v_1_u_slider.value
-            # triangle['v_2_u'] = v_2_u_slider.value
+            # u = triangle['u']
+            # v_1_a = triangle['v_1_a']
+            # v_1_u = triangle['v_1_u']
+            # v_2_a = triangle['v_2_a']
+            # v_2_u = triangle['v_2_u']
+
+                # 参数滑块
+            u_slider = ft.Slider(
+                min=100, 
+                max=600, 
+                divisions=50, 
+                label="轮缘速度 (U): {value} m/s",
+                value=u,
+                expand=True
+            )
+            
+            v_1_a_slider = ft.Slider(
+                min=100, 
+                max=500, 
+                divisions=40, 
+                label="入口轴向速度 (v_1_a): {value} m/s",
+                value=v_1_a,
+                expand=True
+            )
+            
+            v_1_u_slider = ft.Slider(
+                min=-200, 
+                max=400, 
+                divisions=60, 
+                label="入口切向速度 (v_1_u): {value} m/s",
+                value=v_1_u,
+                expand=True
+            )
+            
+            v_2_a_slider = ft.Slider(
+                min=100, 
+                max=500, 
+                divisions=40, 
+                label="出口轴向速度 (v_2_a): {value} m/s",
+                value=v_2_a,
+                expand=True
+            )
+            
+            v_2_u_slider = ft.Slider(
+                min=-400, 
+                max=200, 
+                divisions=60, 
+                label="出口切向速度 (v_2_u): {value} m/s",
+                value=v_2_u,
+                expand=True
+            )
+    
+            triangle['u'] = u_slider.value
+            triangle['v_1_a'] = v_1_a_slider.value
+            triangle['v_2_a'] = v_2_a_slider.value
+            triangle['v_1_u'] = v_1_u_slider.value
+            triangle['v_2_u'] = v_2_u_slider.value
 
             params = {
                 'psi': psi,
@@ -368,10 +374,10 @@ def main(page: ft.Page):
             draw_common_elements(draw, u)
             
             # 绘制入口速度三角形
-            draw_triangle(draw, triangle, 300, 200, 0.5, "入口速度三角形", True)
+            draw_triangle(draw, triangle, 300, 100, 0.5, "入口速度三角形", True)
             
             # 绘制出口速度三角形
-            draw_triangle(draw, triangle, 300, 350, 0.5, "出口速度三角形", False)
+            draw_triangle(draw, triangle, 300, 100, 0.5, "出口速度三角形", False)
 
             get_calc_result(triangle, efficiency)
 
@@ -451,12 +457,12 @@ def main(page: ft.Page):
     performance_btn = ft.ElevatedButton("计算性能参数", on_click=calculate_performance)
     
     # 添加滑块事件处理
-    u_slider.on_change = update_canvas
+    # u_slider.on_change = update_canvas
     
-    v_1_a_slider.on_change = update_canvas
-    v_1_u_slider.on_change = update_canvas
-    v_2_a_slider.on_change = update_canvas
-    v_2_u_slider.on_change = update_canvas
+    # v_1_a_slider.on_change = update_canvas
+    # v_1_u_slider.on_change = update_canvas
+    # v_2_a_slider.on_change = update_canvas
+    # v_2_u_slider.on_change = update_canvas
     
     # 程序说明 - 使用Markdown格式
     explanation = ft.Markdown("""
@@ -551,11 +557,11 @@ def main(page: ft.Page):
                             content=ft.Column(
                                 expand=True,
                                 controls=[
-                                    u_slider,
-                                    v_1_a_slider,
-                                    v_1_u_slider,
-                                    v_2_a_slider,
-                                    v_2_u_slider
+                                    # u_slider,
+                                    # v_1_a_slider,
+                                    # v_1_u_slider,
+                                    # v_2_a_slider,
+                                    # v_2_u_slider
                                 ]
                             )
                         )
