@@ -33,11 +33,7 @@ class Solver:
 
     def solve_inverse_problem(
         self,
-        psi: float,
-        varphi: float,
-        omega: float,
-        K: float,
-        D_ratio: float,
+        params: dict,
     ) -> str:
         
         """求解反问题
@@ -52,13 +48,19 @@ class Solver:
         -------
         参数：
 
-        psi: 载荷系数
-        varphi: 流量系数
-        omega: 反力度
-        K: 轴向速比
-        D_ratio: 进出口中径比
+        params: dict -> 包含以下键的字典
+            psi: 载荷系数
+            varphi: 流量系数
+            omega: 反力度
+            K: 轴向速比
+            D_ratio: 进出口中径比
 
         """
+        psi = params['psi']
+        varphi = params['varphi']
+        omega = params['omega']
+        K = params['k']
+        d_ratio = params['d_ratio']
 
         u = math.sqrt(self.L_u / psi)
         self.u = u
@@ -80,10 +82,10 @@ class Solver:
         w_1 = math.sqrt(w_1_u**2 + w_1_a**2)
         w_2 = math.sqrt(w_2_u**2 + w_2_a**2)
 
-        alpha_1 = math.degrees(math.atan2(v_1_u, v_1_a))
-        alpha_2 = math.degrees(math.atan2(v_2_u, v_2_a))
-        beta_1 = math.degrees(math.atan2(w_1_u, w_1_a))
-        beta_2 = math.degrees(math.atan2(w_2_u, w_2_a))
+        alpha_1 = math.degrees(math.atan2(varphi*K, (psi/2) + (1-omega)))
+        alpha_2 = math.degrees(math.atan2(varphi, (psi/2) - (1-omega)))
+        beta_1 = math.degrees(math.atan2(varphi*K, (psi/2) - omega))
+        beta_2 = math.degrees(math.atan2(varphi, ((psi/2) - (1-omega) + d_ratio)))  
         
         return {
             'v_1_u': v_1_u, 'v_1_a': v_1_a, 'v_1': v_1, 'alpha_1': alpha_1,
@@ -130,10 +132,10 @@ class Solver:
         w_2 = math.sqrt(w_2_u**2 + w_2_a**2)
 
         # 计算角度
-        alpha_1 = math.degrees(math.atan2(v_1_u, v_1_a))
-        alpha_2 = math.degrees(math.atan2(v_2_u, v_2_a))
-        beta_1 = math.degrees(math.atan2(w_1_u, w_1_a))
-        beta_2 = math.degrees(math.atan2(w_2_u, w_2_a))
+        alpha_1 = math.degrees(math.atan2(v_1_a, v_1_u))
+        alpha_2 = 180 - math.degrees(math.atan2(v_2_a, v_2_u))
+        beta_1 = math.degrees(math.atan2(w_1_a, w_1_u))
+        beta_2 = 180 - math.degrees(math.atan2(w_2_a, w_2_u))
 
         return {
             'psi': psi, 'varphi': varphi, 'K': K, 'omega': omega,
@@ -227,7 +229,7 @@ class Solver:
             else:
                 raise ZeroDivisionError
 
-        beta_1, beta_2, v_1_a, v_2_a= triangle['beta_1'], abs(triangle['beta_2']), triangle['v_1_a'], triangle['v_2_a']
+        beta_1, beta_2, v_1_a, v_2_a= triangle['beta_1'], triangle['beta_2'], triangle['v_1_a'], triangle['v_2_a']
         # print('beta_1: ', beta_1, '\nbeta_2: ', beta_2)
         # print('r_beta_1: ', math.radians(beta_1), '\nr_beta_2: ', math.radians(beta_2))
         varphi, psi, omega, d_ratio, K = parmas['varphi'], parmas['psi'], parmas['omega'], parmas['d_ratio'], parmas['k']
@@ -310,7 +312,7 @@ class Solver:
             'd_ratio': 1
         }
         
-        triangle = self.solve_inverse_problem(psi, varphi, omega, K, 1)
+        triangle = self.solve_inverse_problem(params=parmas)
         print('current efficiency: ', self.calc_efficiency(triangle=triangle, aspect_ratio=1, parmas=parmas, is_search=True))
 
         return self.calc_efficiency(triangle=triangle, aspect_ratio=2, parmas=parmas, is_search=True)
@@ -366,11 +368,11 @@ class Solver:
 
         best_x, best_y = ga.run()
         Y_history = pd.DataFrame(ga.all_history_Y)
-        fig, ax = plt.subplots(2, 1)
-        ax[0].plot(Y_history.index, Y_history.values, '.', color='red')
-        Y_history.min(axis=1).cummin().plot(kind='line')
+        # fig, ax = plt.subplots(2, 1)
+        # ax[0].plot(Y_history.index, Y_history.values, '.', color='red')
+        # Y_history.min(axis=1).cummin().plot(kind='line')
 
-        plt.show()
+        # plt.show()
 
         print(f'最优参数组合: {best_x}\n最优效率: {-best_y[0]*100:.2f}%')
         return best_x, best_y
