@@ -12,10 +12,17 @@ class TurbineDesignApp:
 
         page.theme_mode = ft.ThemeMode.LIGHT
         page.scroll = ft.ScrollMode.AUTO
-        
+        # page.vertical_alignment = ft.MainAxisAlignment.CENTER
+        # page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+        page.window.width = 1200
+        page.window.height = 800
+        page.window.left = 150
+        page.window.top = 100
+        self.width = page.window.width
+        self.height = page.window.height
+
         self.page = page
-        self.page.window_width = 1200
-        self.page.window_height = 800
+
 
         u = 392.74
         v_1_a = 353.46
@@ -24,11 +31,13 @@ class TurbineDesignApp:
         v_2_u = -117.82
         # 创建绘图控件
         self.canvas = ft.Container(
-            width=1000,
-            height=800,
-            bgcolor=ft.Colors.GREY_100,
+            margin=ft.margin.only(top=10),
+            width=800,
+            # expand=True,
+            padding=ft.padding.all(10),
+            height=400,
+            bgcolor=ft.Colors.WHITE,
             border_radius=10,
-            padding=20,
             content=cv.Canvas(),
         )
 
@@ -275,23 +284,19 @@ class TurbineDesignApp:
         self.page.update()
 
         widget = ft.Container(
-            width=self.page.window_width,
-            height=self.page.window_height,
+            width=self.width,
+            height=self.height,
             padding=10,
             border_radius=20,
             bgcolor=ft.Colors.WHITE,
-            shadow= ft.BoxShadow(
-                color=ft.Colors.BLACK,
-                offset=ft.Offset(0, 3)
-            ),
             content=ft.Row(
                 controls=[
                     # 左侧参数输入区
                     ft.Container(
-                        width=300,
+                        width=310,
                         border_radius=10,
-                        bgcolor=ft.Colors.GREY_100,
-                        padding=ft.padding.only(top=10),
+                        # bgcolor=ft.Colors.GREY_100,
+                        padding=ft.padding.only(top=10, right=10),
                         content=ft.Column(
                             
                             expand=True,
@@ -312,8 +317,7 @@ class TurbineDesignApp:
                                 ft.Row([mass_flow_input, ft.VerticalDivider(width=10), tip_diameter_input]),
                                 performance_btn,
                                 # self.performance_results，
-                                ft.Divider(height=15),
-                                ft.Text("计算结果", size=16, weight=ft.FontWeight.BOLD),
+
                                 ft.Divider(height=10, thickness=1),
                                 ft.Container(
                                     content=self.results,
@@ -327,57 +331,62 @@ class TurbineDesignApp:
                     ),
                     
                     # 垂直分隔线
-                    ft.VerticalDivider(width=10, color=ft.Colors.TRANSPARENT),
+                    ft.VerticalDivider(width=10),
                     
-                    # 中间结果展示区
                     ft.Container(
-                        width=300,
+                        width=800,
                         border_radius=10,
-                        bgcolor=ft.Colors.GREY_100,
-                        padding=15,
-                        content=ft.Row(
+                        bgcolor=ft.Colors.WHITE,
+                        padding=10,
+                        content=ft.Column(
                             expand=True,
-                            scroll=ft.ScrollMode.AUTO,
                             controls=[
+                                self.canvas,
+                                ft.Divider(thickness=1),
                                 ft.Container(
-                                    content=ft.Column(
+                                    content=ft.Row(
                                         controls=[
                                             ft.Container(
                                                 width=400,
-                                                border_radius=10,
-                                                bgcolor=ft.Colors.GREY_100,
-                                                padding=15,
-                                                content=self.draw
+                                                expand=True,
+                                                content=ft.Column(
+                                                    expand=True,
+                                                    controls=[
+                                                        ft.Text("参数搜索", size=16, weight=ft.FontWeight.BOLD),
+                                                        ft.Divider(thickness=1),
+                                                        ft.Container(
+                                                            content=self.search_result,
+                                                            padding=10,
+                                                            border_radius=8,
+                                                            bgcolor=ft.Colors.WHITE,
+                                                            expand=True
+                                                        ),
+                                                    ]
+                                                ),
                                             ),
-                                        ]
-                                    )
-                                ),
-                                ft.VerticalDivider(width=10, color=ft.Colors.TRANSPARENT),
-                                ft.Container(
-                                    content=ft.Column(
-                                        controls=[
-                                            ft.Text("参数搜索", size=16, weight=ft.FontWeight.BOLD),
-                                            ft.Divider(height=10, thickness=1),
+                                            ft.VerticalDivider(thickness=1),
                                             ft.Container(
-                                                content=self.search_result,
-                                                padding=10,
-                                                border_radius=8,
-                                                bgcolor=ft.Colors.WHITE,
-                                                height=200
-                                            ),
-                                            
-                                            ft.Divider(height=15),
-                                            
-                                            ft.Text("参数调节", size=16, weight=ft.FontWeight.BOLD),
-                                            ft.Divider(height=10, thickness=1),
-                                            ft.Container(
-                                                content=self.sliders,
-                                                padding=10,
-                                                border_radius=8,
-                                                bgcolor=ft.Colors.WHITE
+                                                width=400,
+                                                expand=True,
+                                                content=ft.Column(
+                                                    expand=True,
+                                                    controls=[
+                                                        ft.Text("参数调节", size=16, weight=ft.FontWeight.BOLD),
+                                                        ft.Divider(thickness=1),
+                                                        ft.Container(
+                                                            content=self.sliders,
+                                                            padding=10,
+                                                            border_radius=8,
+                                                            bgcolor=ft.Colors.WHITE,
+                                                            expand=True
+                                                        )
+                                                    ]
+                                                )
                                             )
                                         ]
                                     )
+                                    
+                                    
                                 )
                                 
                             ]
@@ -385,8 +394,6 @@ class TurbineDesignApp:
                     ),
                 
                 ],
-                expand=True,
-                spacing=0
             )
         )
         
