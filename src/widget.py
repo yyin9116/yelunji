@@ -1,7 +1,8 @@
 import flet as ft
 import flet.canvas as cv
 import math
-from solver import Solver    
+from solver import Solver  
+from utils import no_hover_style  
 
 
 class TurbineDesignApp:
@@ -15,7 +16,7 @@ class TurbineDesignApp:
         # page.vertical_alignment = ft.MainAxisAlignment.CENTER
         # page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
         page.window.width = 1200
-        page.window.height = 800
+        page.window.height = 860
         page.window.left = 150
         page.window.top = 100
         self.width = page.window.width
@@ -35,7 +36,7 @@ class TurbineDesignApp:
             width=800,
             # expand=True,
             padding=ft.padding.all(10),
-            height=400,
+            height=300,
             bgcolor=ft.Colors.WHITE,
             border_radius=10,
             content=cv.Canvas(),
@@ -78,7 +79,8 @@ class TurbineDesignApp:
             value=v_2_u,
             expand=True
         )
-        
+        self.selected_algorithm = "遗传算法(GA)" 
+
         page.add(self.build())
         page.update()
 
@@ -91,13 +93,21 @@ class TurbineDesignApp:
             'psi': 1.8, 'phi': 0.9, 'omega': 0.4, 'K': 1.0, 'D_ratio': 1.0,
             'T01': 1200, 'P01': 5, 'expansion_ratio': 2.5, 'rpm': 20000, 'mass_flow': 13, 'tip_diameter': 0.45
         }
+
+        default_params_input = {
+            'psi': 1.8,
+            'varphi': 0.9,
+            'omega': 0.4,
+            'd_ratio': 1.0,
+            'k': 1.0
+        }
         
         # 创建输入控件
-        psi_input = ft.TextField(label="载荷系数 (ψ)", value=str(default_params['psi']), width=120)
-        phi_input = ft.TextField(label="流量系数 (φ)", value=str(default_params['phi']), width=120)
-        omega_input = ft.TextField(label="反力度 (ω)", value=str(default_params['omega']), width=120)
-        K_input = ft.TextField(label="轴向速比 (K)", value=str(default_params['K']), width=120)
-        D_ratio_input = ft.TextField(label="中径比 (D₂/D₁)", value=str(default_params['D_ratio']), width=120)
+        self.psi_input = ft.TextField(label="载荷系数 (ψ)", value=str(default_params['psi']), width=120)
+        self.phi_input = ft.TextField(label="流量系数 (φ)", value=str(default_params['phi']), width=120)
+        self.omega_input = ft.TextField(label="反力度 (ω)", value=str(default_params['omega']), width=120)
+        self.K_input = ft.TextField(label="轴向速比 (K)", value=str(default_params['K']), width=120)
+        self.D_ratio_input = ft.TextField(label="中径比 (D₂/D₁)", value=str(default_params['D_ratio']), width=120)
         # u_input = ft.TextField(label="轮缘速度 (U, m/s)", value=str(default_params['u']), width=180)
 
         # 性能参数输入
@@ -108,24 +118,32 @@ class TurbineDesignApp:
         mass_flow_input = ft.TextField(label="流量 (kg/s)", value=str(default_params['mass_flow']), width=120)
         tip_diameter_input = ft.TextField(label="叶尖直径 (m)", value=str(default_params['tip_diameter']), width=120)
             
-        def update_canvas(e):
+        def update_canvas(e, params: dict=None):
             """更新画布和计算结果"""
             # 更新入口速度三角形
             try:
+                if not params:
                 # 获取输入参数
-                psi = float(psi_input.value)
-                varphi = float(phi_input.value)
-                omega = float(omega_input.value)
-                K = float(K_input.value)
-                D_ratio = float(D_ratio_input.value)
+                    psi = float(self.psi_input.value)
+                    varphi = float(self.phi_input.value)
+                    omega = float(self.omega_input.value)
+                    K = float(self.K_input.value)
+                    D_ratio = float(self.D_ratio_input.value)
+                    
+                    params = {
+                        'psi': psi,
+                        'varphi': varphi,
+                        'omega': omega,
+                        'd_ratio': D_ratio,
+                        'k': K
+                    }
                 
-                params = {
-                    'psi': psi,
-                    'varphi': varphi,
-                    'omega': omega,
-                    'd_ratio': D_ratio,
-                    'k': K
-                }
+                else:
+                    psi = params['psi']
+                    varphi = params['varphi']
+                    omega = params['omega']
+                    K = params['k']
+                    D_ratio = params['d_ratio']
 
                 # 反问题求解
                 triangle = self.solver.solve_inverse_problem(params=params)
@@ -152,8 +170,6 @@ class TurbineDesignApp:
                 # 绘制出口速度三角形
                 self.draw_triangle(self.draw, triangle, 300, 100, 0.5, "出口速度三角形", False)
                 self.get_calc_result(triangle, efficiency)
-                search_params_btn =ft.ElevatedButton("开始搜索参数", on_click=lambda _: self.get_search_result())
-                self.results.controls.append(search_params_btn)
 
                 self.page.update()
             
@@ -216,20 +232,30 @@ class TurbineDesignApp:
             except Exception as ex:
                 print(f"Error: {ex}")
 
+        def reset_canvas():
+            self.reset_sliders()
+            update_canvas(None, params=default_params_input)
+            print('reset')
+
         # 计算结果文本
-        self.sliders = ft.Column(expand=True, spacing=10, controls=[
+        self.sliders = ft.Column(expand=True, spacing=2, controls=[
+            ft.Text("入口轴向速度 (v_1_a): ", size=14, weight=ft.FontWeight.BOLD),
             self.v_1_a_slider,
+            ft.Text("入口切向速度 (v_1_u): ", size=14, weight=ft.FontWeight.BOLD),
             self.v_1_u_slider,
+            ft.Text("出口轴向速度 (v_2_a): ", size=14, weight=ft.FontWeight.BOLD),
             self.v_2_a_slider,
-            self.v_2_u_slider
+            ft.Text("出口切向速度 (v_2_u): ", size=14, weight=ft.FontWeight.BOLD),
+            self.v_2_u_slider,
+            ft.TextButton("重置速度三角形", on_click=lambda _: reset_canvas(), style=no_hover_style, icon=ft.Icons.REPLAY, width=200, height=30)
         ])
         self.results = ft.Column(expand=True, spacing=10, height=800)
-        self.search_result = ft.Column(expand=True, spacing=10, height=500)
+        self.search_result = ft.Column(expand=True, spacing=10, height=600)
         self.performance_results = ft.Column(expand=True, spacing=8)
 
         # 创建按钮
         calculate_btn = ft.ElevatedButton("计算速度三角形", on_click=update_canvas)
-        performance_btn = ft.ElevatedButton("计算性能参数", on_click=calculate_performance)
+        # performance_btn = ft.ElevatedButton("计算性能参数", on_click=calculate_performance)
         
         # 添加滑块事件处理
 
@@ -304,9 +330,9 @@ class TurbineDesignApp:
                             controls=[
                                 ft.Text("无量纲参数", size=16, weight=ft.FontWeight.BOLD),
                                 # ft.Divider(height=10, thickness=1),
-                                ft.Row([psi_input, ft.VerticalDivider(width=10), phi_input]),
-                                ft.Row([omega_input, ft.VerticalDivider(width=10), K_input]),
-                                ft.Row([D_ratio_input, calculate_btn], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                                ft.Row([self.psi_input, ft.VerticalDivider(width=10), self.phi_input]),
+                                ft.Row([self.omega_input, ft.VerticalDivider(width=10), self.K_input]),
+                                ft.Row([self.D_ratio_input, ft.VerticalDivider(width=10), calculate_btn]),
                                 
                                 ft.Divider(height=15),
                                 
@@ -315,8 +341,8 @@ class TurbineDesignApp:
                                 ft.Row([T01_input, ft.VerticalDivider(width=10), P01_input]),
                                 ft.Row([expansion_input, ft.VerticalDivider(width=10), rpm_input]),
                                 ft.Row([mass_flow_input, ft.VerticalDivider(width=10), tip_diameter_input]),
-                                performance_btn,
-                                # self.performance_results，
+                                # performance_btn,
+                                # self.performance_results,
 
                                 ft.Divider(height=10, thickness=1),
                                 ft.Container(
@@ -348,18 +374,61 @@ class TurbineDesignApp:
                                         controls=[
                                             ft.Container(
                                                 width=400,
+                                                height=600,
                                                 expand=True,
                                                 content=ft.Column(
                                                     expand=True,
                                                     controls=[
                                                         ft.Text("参数搜索", size=16, weight=ft.FontWeight.BOLD),
                                                         ft.Divider(thickness=1),
+                                                        
+                                                        # 下拉菜单选择搜索算法
+                                                        ft.Dropdown(
+                                                            width=300,
+                                                            
+                                                            label="搜索算法",
+                                                            hint_text="选择优化方法",
+                                                            options=[
+                                                                ft.dropdown.Option("遗传算法(GA)"),
+                                                                ft.dropdown.Option("粒子群优化(PSO)"),
+                                                                ft.dropdown.Option("差分进化(DE)"),
+                                                                ft.dropdown.Option("Pytorch优化器(AdamOptimizer)"),
+                                                            ],
+                                                            value="遗传算法(GA)",  # 默认值
+                                                            on_change=self.on_algorithm_change# 添加变更事件处理
+                                                        ),
+                                                        
+                                                        # 搜索按钮和容器在同一行
+                                                        ft.Row(
+                                                            controls=[
+                                                                # 搜索按钮
+                                                                ft.ElevatedButton(
+                                                                    "开始搜索参数",
+                                                                    on_click=lambda _: self.get_search_result(),
+                                                                    width=150,
+                                                                    height=30
+                                                                ),
+                                                                
+                                                                # 清除/复位按钮（可选）
+                                                                ft.TextButton(
+                                                                    "清除",
+                                                                    on_click=lambda _: self.clear_search_result(),
+                                                                    icon=ft.Icons.DELETE,
+                                                                    style=no_hover_style,
+                                                                    width=100
+                                                                )
+                                                            ],
+                                                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                                                        ),
+                                                        
+                                                        # 搜索结果显示容器
                                                         ft.Container(
                                                             content=self.search_result,
-                                                            padding=10,
+                                                            padding=5,
                                                             border_radius=8,
                                                             bgcolor=ft.Colors.WHITE,
-                                                            expand=True
+                                                            expand=True,
+                                                            # scroll=ft.ScrollMode.AUTO  # 添加滚动支持
                                                         ),
                                                     ]
                                                 ),
@@ -367,18 +436,18 @@ class TurbineDesignApp:
                                             ft.VerticalDivider(thickness=1),
                                             ft.Container(
                                                 width=400,
-                                                expand=True,
+                                                height=600,
+                                                # expand=True,
                                                 content=ft.Column(
-                                                    expand=True,
                                                     controls=[
                                                         ft.Text("参数调节", size=16, weight=ft.FontWeight.BOLD),
                                                         ft.Divider(thickness=1),
                                                         ft.Container(
                                                             content=self.sliders,
-                                                            padding=10,
+                                                            padding=5,
                                                             border_radius=8,
                                                             bgcolor=ft.Colors.WHITE,
-                                                            expand=True
+                                                            # expand=True
                                                         )
                                                     ]
                                                 )
@@ -398,7 +467,6 @@ class TurbineDesignApp:
         )
         
         return widget
-        
     
     def draw_triangle(
             self,
@@ -440,8 +508,8 @@ class TurbineDesignApp:
                     ),
                     
                     cv.Text(
-                        x - (triangle['v_1_u' if is_inlet else 'v_2_u'] + triangle['w_1_u' if is_inlet else 'w_2_u']) / 2 * visual_scale, 
-                        y + triangle['v_1_a' if is_inlet else 'v_2_a'] * visual_scale + 20,
+                        x - (triangle['v_1_u' if is_inlet else 'v_2_u'] + triangle['w_1_u' if is_inlet else 'w_2_u']) / 2 * visual_scale - 70, 
+                        y + triangle['v_1_a' if is_inlet else 'v_2_a'] * visual_scale + 2,
                         f"U = {triangle['u']:.1f} m/s", 
                         ft.TextStyle(size=14, color=ft.Colors.RED)
                     ),
@@ -449,25 +517,25 @@ class TurbineDesignApp:
                     # 绝对速度 
                     cv.Text(
                         x - triangle['v_1_u' if is_inlet else 'v_2_u'] * visual_scale, 
-                        y + triangle['v_1_a' if is_inlet else 'v_2_a'] * visual_scale - 25,
+                        y + triangle['v_1_a' if is_inlet else 'v_2_a'] * visual_scale - 70,
                         f"V = {triangle['v_1' if is_inlet else 'v_2']:.1f} m/s\nα = {triangle['alpha_1' if is_inlet else 'alpha_2']:.1f}°", 
                         ft.TextStyle(size=14, color=ft.Colors.BLUE)
                     ),
 
                     # 相对速度 
                     cv.Text(
-                        x - (triangle['w_1_u' if is_inlet else 'w_2_u'] * visual_scale) / 2 - 10, 
-                        y + (triangle['v_1_a' if is_inlet else 'v_2_a'] * visual_scale) / 2 - 20,
+                        x - (triangle['w_1_u' if is_inlet else 'w_2_u'] * visual_scale) / 2 - 30, 
+                        y + (triangle['v_1_a' if is_inlet else 'v_2_a'] * visual_scale) / 2 - 0,
                         f"W = {triangle['w_1' if is_inlet else 'w_2']:.1f} m/s\nβ = {triangle['beta_1' if is_inlet else 'beta_2']:.1f}°", 
                         ft.TextStyle(size=14, color=ft.Colors.GREEN)
                     ),
 
                     # 添加位置标签
-                    cv.Text(
-                        x, y + 30, 
-                        label, 
-                        ft.TextStyle(size=16, weight=ft.FontWeight.BOLD)
-                    ),
+                    # cv.Text(
+                    #     x, y + 30, 
+                    #     label, 
+                    #     ft.TextStyle(size=16, weight=ft.FontWeight.BOLD)
+                    # ),
                 ]
             )
         
@@ -477,16 +545,16 @@ class TurbineDesignApp:
         draw.shapes.extend(
             [
                 cv.Text(
-                    300, 20, 
+                    200, 10, 
                     "涡轮速度三角形可视化", 
                     ft.TextStyle(size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_800)
                 ),
                 
-                # 添加坐标系说明
-                cv.Line(50, 50, 50, 400, ft.Paint(color=ft.Colors.BLACK, stroke_width=1)),
-                cv.Line(50, 400, 700, 400, ft.Paint(color=ft.Colors.BLACK, stroke_width=1)),
-                cv.Text(30, 220, "轴向", ft.TextStyle(size=12, color=ft.Colors.BLACK)),
-                cv.Text(370, 420, "切向", ft.TextStyle(size=12, color=ft.Colors.BLACK)),
+                # # 添加坐标系说明
+                # cv.Line(50, 50, 50, 400, ft.Paint(color=ft.Colors.BLACK, stroke_width=1)),
+                # cv.Line(50, 400, 700, 400, ft.Paint(color=ft.Colors.BLACK, stroke_width=1)),
+                # cv.Text(30, 220, "轴向", ft.TextStyle(size=12, color=ft.Colors.BLACK)),
+                # cv.Text(370, 420, "切向", ft.TextStyle(size=12, color=ft.Colors.BLACK)),
                 
                 # 添加图例
                 # cv.Rect(500, 30, 200, 100, ft.Paint(color=ft.Colors.WHITE)),
@@ -498,58 +566,72 @@ class TurbineDesignApp:
                 cv.Line(520, 105, 550, 105, ft.Paint(color=ft.Colors.GREEN, stroke_width=3)),
                 cv.Text(560, 100, "相对速度 (W)", ft.TextStyle(size=12)),
                 
-                # 添加涡轮叶片示意图
-                cv.Line(100, 150, 150, 130, ft.Paint(color=ft.Colors.BROWN, stroke_width=4)),
-                cv.Line(150, 130, 180, 150, ft.Paint(color=ft.Colors.BROWN, stroke_width=4)),
-                cv.Line(100, 250, 150, 270, ft.Paint(color=ft.Colors.BROWN, stroke_width=4)),
-                cv.Line(150, 270, 180, 250, ft.Paint(color=ft.Colors.BROWN, stroke_width=4)),
-                cv.Text(140, 2120, "涡轮叶片", ft.TextStyle(size=12, color=ft.Colors.BROWN)),
+                # # 添加涡轮叶片示意图
+                # cv.Line(100, 150, 150, 130, ft.Paint(color=ft.Colors.BROWN, stroke_width=4)),
+                # cv.Line(150, 130, 180, 150, ft.Paint(color=ft.Colors.BROWN, stroke_width=4)),
+                # cv.Line(100, 250, 150, 270, ft.Paint(color=ft.Colors.BROWN, stroke_width=4)),
+                # cv.Line(150, 270, 180, 250, ft.Paint(color=ft.Colors.BROWN, stroke_width=4)),
+                # cv.Text(140, 2120, "涡轮叶片", ft.TextStyle(size=12, color=ft.Colors.BROWN)),
                 
-                # 添加流动方向
-                cv.Line(200, 200, 230, 200, ft.Paint(color=ft.Colors.DEEP_PURPLE, stroke_width=2)),
-                # canvas.content.draw_triangle(230, 200, 225, 197, 225, 203, ft.Paint(color=ft.Colors.DEEP_PURPLE)),
-                cv.Text(240, 195, "气流方向", ft.TextStyle(size=12, color=ft.Colors.DEEP_PURPLE)),
+                # # 添加流动方向
+                # cv.Line(200, 200, 230, 200, ft.Paint(color=ft.Colors.DEEP_PURPLE, stroke_width=2)),
+                # # canvas.content.draw_triangle(230, 200, 225, 197, 225, 203, ft.Paint(color=ft.Colors.DEEP_PURPLE)),
+                # cv.Text(240, 195, "气流方向", ft.TextStyle(size=12, color=ft.Colors.DEEP_PURPLE)),
 
-                # 添加旋转方向
-                cv.Arc(650, 200, 40, 40, 0, 2 * math.pi, 
-                                    ft.Paint(color=ft.Colors.AMBER, style=ft.PaintingStyle.STROKE, stroke_width=2)),
-                cv.Line(6120, 200, 685, 195, ft.Paint(color=ft.Colors.AMBER, stroke_width=2)),
-                cv.Line(6120, 200, 685, 205, ft.Paint(color=ft.Colors.AMBER, stroke_width=2)),
-                cv.Text(645, 250, "旋转方向", ft.TextStyle(size=12, color=ft.Colors.AMBER))
+                # # 添加旋转方向
+                # cv.Arc(650, 200, 40, 40, 0, 2 * math.pi, 
+                #                     ft.Paint(color=ft.Colors.AMBER, style=ft.PaintingStyle.STROKE, stroke_width=2)),
+                # cv.Line(6120, 200, 685, 195, ft.Paint(color=ft.Colors.AMBER, stroke_width=2)),
+                # cv.Line(6120, 200, 685, 205, ft.Paint(color=ft.Colors.AMBER, stroke_width=2)),
+                # cv.Text(645, 250, "旋转方向", ft.TextStyle(size=12, color=ft.Colors.AMBER))
             ]
         )
         
     def get_search_result(self):
-        best_x, best_y = self.solver.search_params(self.solver.search_params_DE)
-        method = "差分进化" if self.solver.search_params_DE else "粒子群优化"
-        best_psi, best_varphi, best_omega, best_k = best_x
+        if self.selected_algorithm == "遗传算法(GA)":
+            method = self.solver.search_params_GA
+        elif self.selected_algorithm == "粒子群优化(PSO)":
+            method = self.solver.search_params_PSO
+        elif self.selected_algorithm == "差分进化(DE)":
+            method = self.solver.search_params_DE
+        elif self.selected_algorithm == "Pytorch优化器(AdamOptimizer)":
+            method = self.solver.search_params_torch
+        else:
+            method = self.solver.search_params_GA
+
+
+        best_x, best_y, time = self.solver.search_params(method)
+
+        self.best_psi, self.best_varphi, self.best_omega, self.best_k = best_x
 
         self.search_result.controls.clear()
         self.search_result.controls.extend([
-            ft.Text("搜索结果:", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+            ft.Row([
+                ft.Text("搜索结果:    ", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+                ft.Text(f"用时{time:.2f} 秒", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700)]),
             ft.Row([
                 ft.Text("搜索算法:", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{method}")]),
+                ft.Text(f"{self.selected_algorithm}")]),
             ft.Row([
                 ft.Text("最优载荷系数(psi):", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{best_psi:.3f}")]),
+                ft.Text(f"{self.best_psi:.3f}")]),
             ft.Row([
                 ft.Text("最优流量系数 (varphi):", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{best_varphi:.3f}")]),
+                ft.Text(f"{self.best_varphi:.3f}")]),
             ft.Row([
                 ft.Text("最优反力度(omega):", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{best_omega:.3f}")]),
+                ft.Text(f"{self.best_omega:.3f}")]),
             ft.Row([
                 ft.Text("最优轴向速比(K):", width=200, weight=ft.FontWeight.BOLD),
-                ft.Text(f"{best_k:.3f}")]),
+                ft.Text(f"{self.best_k:.3f}")]),
             ft.Row([
                 ft.Text("最优效率:", width=200, weight=ft.FontWeight.BOLD),
                 ft.Text(f"{-best_y[0]*100:.2f}%")]),  
             ft.Row([
-                ft.TextButton("一键填入当前值", on_click=lambda _: self.get_search_result(), width=200)])
+                ft.TextButton("一键填入当前值", on_click=lambda _: self.one_key_fill(), style=no_hover_style,width=200)])
         ])
 
-        # print(f"Best params: psi={best_psi}, varphi={best_varphi}, omega={best_omega}, k={best_k}, efficiency={-best_y[0]*100:.2f}%")
+        # print(f"Best params: psi={self.best_psi}, varphi={self.best_varphi}, omega={self.best_omega}, k={self.best_k}, efficiency={-best_y[0]*100:.2f}%")
         self.page.update()
 
     def get_calc_result(self, triangle, efficiency):
@@ -633,6 +715,40 @@ class TurbineDesignApp:
         # triangle['alpha_2'] = math.degrees(math.atan2(varphi, ((psi/2) - (1-omega) + d_ratio)))  
         return triangle
 
+    def on_algorithm_change(self, e):
+        """当下拉菜单选择变化时触发"""
+        self.selected_algorithm = e.control.value  # ← 获取当前选中的值
+        print(f"算法选择已变更为: {self.selected_algorithm}")
 
-    
+    def clear_search_result(self):
+        """清除搜索结果"""
+        self.search_result.controls.clear()
+        self.page.update()
+        print("搜索结果已清除")
         
+    def one_key_fill(self):
+        """一键填入当前值"""
+        # 更新输入框值
+        self.psi_input.value = str(self.best_psi)
+        self.phi_input.value = str(self.best_varphi)
+        self.omega_input.value = str(self.best_omega)
+        self.K_input.value = str(self.best_k)
+        self.D_ratio_input.value = str(1.0)  # 中径比默认值
+        
+        self.page.update()#
+
+    def reset_sliders(self):
+        """重置滑块到默认值"""
+        v_1_a = 353.46
+        v_1_u = 589.11
+        v_2_a = 353.46
+        v_2_u = -117.82
+        self.v_1_a_slider.value = v_1_a
+        self.v_1_u_slider.value = v_1_u
+        self.v_2_a_slider.value = v_2_a
+        self.v_2_u_slider.value = v_2_u
+        
+        # 更新画布
+        self.draw.shapes.clear()
+        self.page.update()
+
