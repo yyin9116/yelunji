@@ -1,8 +1,14 @@
 import math
 from sko.GA import GA
 from sko.DE import DE
+from sko.PSO import PSO
+
 import pandas as pd
 import matplotlib.pyplot as plt
+import torch
+from torch import nn
+
+from utils import measure_search_time
 
 
 class Solver:
@@ -27,6 +33,8 @@ class Solver:
         self.tip_diameter = tip_diameter
         self.L_u = self.Cp * (self.T01 - self.T02)
         self.u_limit = self.tip_diameter * rpm
+        self.lb = [1.5, 0.2, 0.3, 0.9]
+        self.ub = [2, 0.8, 0.5, 1.2]
 
         
     
@@ -215,7 +223,7 @@ class Solver:
 
         Return:
 
-        \yta: 效率
+        \eta: 效率
 
         ------
         参数：
@@ -233,7 +241,7 @@ class Solver:
         # print('beta_1: ', beta_1, '\nbeta_2: ', beta_2)
         # print('r_beta_1: ', math.radians(beta_1), '\nr_beta_2: ', math.radians(beta_2))
         varphi, psi, omega, d_ratio, K = parmas['varphi'], parmas['psi'], parmas['omega'], parmas['d_ratio'], parmas['k']
-        # print(f'正在尝试的参数组合: \nvarphi: {varphi:.2f}\npsi: {psi:.2f}\nomega: {omega:.2f}\nK: {K:.2f}')
+        print(f'正在尝试的参数组合: \nvarphi: {varphi:.2f}\npsi: {psi:.2f}\nomega: {omega:.2f}\nK: {K:.2f}')
 
         # 计算 Kp1 与 Kp2
         if beta_1 + beta_2 < 90:
@@ -258,6 +266,7 @@ class Solver:
         else:
             raise ZeroDivisionError
         # print('xi_denominator: ', xi_denominator)
+
         # 判断展弦比修正系数 K_s, 展弦比(Aspect ratio) $(\frac{h}{b})_2$
         if aspect_ratio >= 2:
             K_s = 1
@@ -272,7 +281,7 @@ class Solver:
         # 计算速度损失系数 \zeta_r, \zeta_s
 
         total_loss = xi_p + xi_s
-        total_loss = max(0.05, min(0.95, total_loss))
+        # total_loss = max(0.05, min(0.95, total_loss))
         zeta_r = math.sqrt(1 - (total_loss))
         zeta_s = zeta_r
         
@@ -294,14 +303,11 @@ class Solver:
         efficiency = 2 * psi * eta_delta / eta_denominator
         # efficiency = 2 * psi * eta_delta / max(eta_denominator, 1e-6)
 
-        # # 确保效率在[0,1]范围内
-        # efficiency = max(0.0, min(1.0, efficiency))
         if is_search:
             return -efficiency
         else:
             return efficiency
         
-    
     def problem4search(self, parameter):
         psi, varphi, omega, K = parameter
         parmas = {
@@ -313,9 +319,9 @@ class Solver:
         }
         
         triangle = self.solve_inverse_problem(params=parmas)
-        print('current efficiency: ', self.calc_efficiency(triangle=triangle, aspect_ratio=1, parmas=parmas, is_search=True))
+        # print('current efficiency: ', self.calc_efficiency(triangle=triangle, aspect_ratio=1/psi, parmas=parmas, is_search=True))
 
-        return self.calc_efficiency(triangle=triangle, aspect_ratio=2, parmas=parmas, is_search=True)
+        return self.calc_efficiency(triangle=triangle, aspect_ratio=1/psi, parmas=parmas, is_search=True)
     
     def problem4search4torch(self, parameter):
         psi, varphi, omega, K = parameter
@@ -327,11 +333,16 @@ class Solver:
             'd_ratio': 1
         }
         
-        triangle = self.solve_inverse_problem(psi, varphi, omega, K, 1)
+        triangle = self.solve_inverse_problem(params=parmas)
         # print('current efficiency: ', self.calc_efficiency(triangle=triangle, aspect_ratio=1, parmas=parmas, is_search=True))
 
-        return self.calc_efficiency(triangle=triangle, aspect_ratio=2, parmas=parmas, is_search=True)
+        return self.calc_efficiency(triangle=triangle, aspect_ratio=1/psi, parmas=parmas, is_search=True)
 
+    def constraint_ueq_func(self, psi):
+        u = math.sqrt(self.L_u / psi)
+        return u - self.u_limit
+
+    @measure_search_time
     def search_params_GA(self) -> list:
         """使用遗传算法搜索最优参数
 
@@ -360,23 +371,24 @@ class Solver:
             max_iter=800,
             prob_mut=0.001,
             # psi, varphi, omega, K
-            lb=[1.5, 0.4, 0.3, 0.9],
-            ub=[2, 0.8, 0.5, 1.1],
-            constraint_ueq=[lambda _:self.u - self.u_limit],
+            lb=self.lb,
+            ub=self.ub,
+            constraint_ueq=[lambda x:self.constraint_ueq_func(psi=x[0])],
             precision=1e-7
         )
 
         best_x, best_y = ga.run()
-        Y_history = pd.DataFrame(ga.all_history_Y)
+        # Y_history = pd.DataFrame(ga.all_history_Y)
         # fig, ax = plt.subplots(2, 1)
         # ax[0].plot(Y_history.index, Y_history.values, '.', color='red')
         # Y_history.min(axis=1).cummin().plot(kind='line')
 
         # plt.show()
 
-        print(f'最优参数组合: {best_x}\n最优效率: {-best_y[0]*100:.2f}%')
+        # print(f'最优参数组合: {best_x}\n最优效率: {-best_y[0]*100:.2f}%')
         return best_x, best_y
     
+    @measure_search_time
     def search_params_DE(self) -> list:
 
         de = DE(
@@ -385,8 +397,9 @@ class Solver:
             size_pop=50,
             max_iter=800,
             # psi, varphi, omega, K
-            lb=[1.5, 0.4, 0.3, 0.9],
-            ub=[2, 0.8, 0.5, 1.1],
+            lb=self.lb,
+            ub=self.ub,
+            constraint_ueq=[lambda x:self.constraint_ueq_func(psi=x[0])],
         )
 
         best_x, best_y = de.run()
@@ -394,28 +407,28 @@ class Solver:
         print(f'最优参数组合: {best_x}\n最优效率: {-best_y[0]*100:.2f}%')
         return best_x, best_y
     
+    @measure_search_time
     def search_params_PSO(self) -> list:
-        from sko.PSO import PSO
+        """使用粒子群优化算法搜索最优参数"""
         pso = PSO(
             func=self.problem4search,
             n_dim=4,
             pop=40,
-            max_iter=150,
+            max_iter=800,
             # psi, varphi, omega, K
-            lb=[1.5, 0.4, 0.3, 0.9],
-            ub=[2, 0.8, 0.5, 1.1],
+            lb=self.lb,
+            ub=self.ub,
+            constraint_ueq=[lambda x: self.constraint_ueq_func(psi=x[0])],
         )
 
         best_x, best_y = pso.run()
-        plt.plot(pso.gbest_y_hist)
-        plt.show()
+        # plt.plot(pso.gbest_y_hist)
+        # plt.show()
         # print(f'最优参数组合: {best_x}\n最优效率: {-best_y[0]*100:.2f}%')
         return best_x, best_y
 
+    @measure_search_time
     def search_params_torch(self):
-        import torch
-        from torch import nn
-        from torch.autograd import Variable
 
         ranges = torch.tensor([
             [1.5, 2],      # psi 范围
@@ -423,30 +436,49 @@ class Solver:
             [0.3, 0.5],    # omega 范围
             [0.9, 1.1]     # K 范围
         ])
+        
+        # 记录历史最佳值
+        best_x = None
+        best_y = float('inf')  
+        
         params = nn.Parameter(torch.randn(4))
         optimizer = torch.optim.Adam([params], lr=0.1)
 
-        n_iter = 800
+        n_iter = 8000
         for i in range(n_iter):
             optimizer.zero_grad()
-    
+        
             # 将参数映射到目标范围
             sigmoid_params = torch.sigmoid(params)
             scaled_params = ranges[:, 0] + sigmoid_params * (ranges[:, 1] - ranges[:, 0])
             
             # 计算目标函数值
-            obj_value = self.problem4search4torch(scaled_params)
+            obj_value = self.problem4search(scaled_params)
             loss = obj_value
+
+            # 更新历史最佳值
+            current_y = obj_value.item()
+            if current_y < best_y:
+                best_y = current_y
+                best_x = scaled_params.detach().numpy()  
 
             loss.backward()
             optimizer.step()
 
-            # if i % 100 == 0:
+            if i % 100 == 0:
                 # 打印实际的目标函数值
-            print(f"Iteration {i}: objective = {-obj_value.item():.4f}")
+                print(f"Iteration {i}: objective = {-obj_value.item()*100:.4f}%")
+                
+                # 显示当前最佳值
+                if best_x is not None:
+                    best_params_str = ", ".join([f"{x:.4f}" for x in best_x])
+                    print(f"Current best params: [{best_params_str}], efficiency = {-best_y:.4f}%")
+
+        return best_x, [best_y]
 
     def search_params(self, func):
-        best_x, best_y = func()
-        return best_x, best_y
+        best_x, best_y, time = func()
+        # print(f"Search completed in {time:.2f} seconds.")
+        return best_x, best_y, time
 
    
