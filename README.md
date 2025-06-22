@@ -1,51 +1,102 @@
 # 基于试验设计/遗传算法的单级涡轮一维优化
 
-## 输入参数：
+## 问题描述：
 
+### 输入参数
 进口总温1200K、进口总压5bar、膨胀比2.5、转速20000rpm、流量13kg/s、等中径设计、
 叶尖直径不大于0.45m，不考虑间隙。
 
 载荷系数参考值：1.5-2.0，反力度参考值：0.3-0.5。
 
-## 运行程序
 
-### uv
+## 项目概述：
 
-Run as a desktop app:
+实现了一个基于Flet框架的交互式航空发动机涡轮一维优化设计系统。系统提供涡轮机械的速度三角形正问题和反问题求解功能，支持多种优化算法进行参数搜索，并通过可视化界面展示涡轮设计结果。
+
+### 主要功能
+- 速度三角形正问题求解（给定速度分量计算无量纲参数）
+
+- 速度三角形反问题求解（给定无量纲参数计算速度分量）
+
+- 涡轮性能参数计算
+
+- 基于半经验损失模型的效率计算
+
+- 多种优化算法进行参数搜索
+
+- 交互式可视化界面
+
+### 系统架构
+
+#### 主要文件结构
+- main.py  **程序入口**： 初始化Flet应用程序，创建主窗口并设置参数，启动涡轮设计应用程序
+- solver.py **涡轮设计核心算法**：Solver类实现涡轮设计相关计算，使用遗传算法(GA)，粒子群优化(PSO)，差分进化(DE)等
+- widget.py  **用户界面组件**：实现应用界面，速度三角形可视化，参数输入控件，计算结果展示以及优化算法选择与执行
+
+## 安装与运行：
+
+### uv管理器
+
+运行桌面应用程序:
 
 ```
 uv run flet run
 ```
 
-Run as a web app:
+运行在浏览器中:
 
 ```
 uv run flet run --web
 ```
 
-### Poetry
-
-Install dependencies from `pyproject.toml`:
-
+### 运行程序
 ```
-poetry install
+python main.py
 ```
+## 功能说明：
 
-Run as a desktop app:
+### 效率计算
 
-```
-poetry run flet run
-```
+基于半经验损失模型计算涡轮效率：
+$$
+\begin{align*}
+\eta &= \frac{2\psi\eta_{\delta}}{\varphi^2\left[\left(\frac{1}{\zeta_r^2} - 1\right) + \left(\frac{V_{1a}}{V_{2a}}\right)^2\left(\frac{1}{\zeta_s^2} - 1\right)\right] + \frac{\psi^2}{4}\left(\frac{1}{\zeta_r^2} + \frac{1}{\zeta_s^2} - 2\right) + \psi\left\{(1 - \Omega)\left(\frac{1}{\zeta_s^2} - 1\right) + \left[\bar{D}_{2m} - (1 - \Omega)\right]\left(\frac{1}{\zeta_r^2} - 1\right) + 2\right\}} \\
+&\quad + \left[\bar{D}_{2m} - (1 - \Omega)\right]^2 + \left(\frac{1}{\zeta_r^2} - 1\right) + (1 - \Omega)^2\left(\frac{1}{\zeta_s^2} - 1\right)
+\end{align*}
+$$
 
-Run as a web app:
+### 参数优化
 
-```
-poetry run flet run --web
-```
+#### 支持四种优化算法搜索最优参数：
+- 遗传算法(GA)
 
-For more details on running the app, refer to the [Getting Started Guide](https://flet.dev/docs/getting-started/).
+- 粒子群优化(PSO)
 
-## Build the app
+- 差分进化(DE)
+
+- Pytorch优化器(Adam)
+
+### 界面说明
+
+<img src='/src/assets/readme_1.png'>
+
+
+### 操作步骤
+1. 在**左侧输入区**输入无量纲参数和性能参数
+
+2. 点击"**计算速度三角形**"按钮生成结果
+
+3. 可使用**滑块**微调速度分量
+
+4. 在右侧选择**优化算法**并点击"**开始搜索参数**"
+
+5. 查看搜索结果并点击"一键填入当前值"应用最优参数
+
+6. 此时点击**计算速度三角形**可更新速度三角形图像
+   
+> 需要注意更新后左小角显示的效率会根据滑块数据计算，以搜索得到的最优效率为准。
+
+## *Flet 构建应用程序
 
 ### Android
 
