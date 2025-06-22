@@ -53,17 +53,22 @@ uv run flet run --web
 ```
 python main.py
 ```
+
+> 运行部分优化算法需要安装环境
+
 ## 功能说明：
 
 ### 效率计算
 
 基于半经验损失模型计算涡轮效率：
+
 $$
 \begin{align*}
 \eta &= \frac{2\psi\eta_{\delta}}{\varphi^2\left[\left(\frac{1}{\zeta_r^2} - 1\right) + \left(\frac{V_{1a}}{V_{2a}}\right)^2\left(\frac{1}{\zeta_s^2} - 1\right)\right] + \frac{\psi^2}{4}\left(\frac{1}{\zeta_r^2} + \frac{1}{\zeta_s^2} - 2\right) + \psi\left\{(1 - \Omega)\left(\frac{1}{\zeta_s^2} - 1\right) + \left[\bar{D}_{2m} - (1 - \Omega)\right]\left(\frac{1}{\zeta_r^2} - 1\right) + 2\right\}} \\
 &\quad + \left[\bar{D}_{2m} - (1 - \Omega)\right]^2 + \left(\frac{1}{\zeta_r^2} - 1\right) + (1 - \Omega)^2\left(\frac{1}{\zeta_s^2} - 1\right)
 \end{align*}
 $$
+
 
 ### 参数优化
 
@@ -78,7 +83,7 @@ $$
 
 ### 界面说明
 
-<img src='/src/assets/readme_1.png'>
+<img src='/src/assets/readme_1.png' width=1000>
 
 
 ### 操作步骤
@@ -95,6 +100,35 @@ $$
 6. 此时点击**计算速度三角形**可更新速度三角形图像
    
 > 需要注意更新后左小角显示的效率会根据滑块数据计算，以搜索得到的最优效率为准。
+
+## 示例
+
+### 初始方案
+程序预设了初始方案：
+| 预设参数 | $\varphi$ | $\psi$ | $\omega$ | $K$ | $D_{ratio}$ |
+|------|-----------|--------|----------|------|------------|
+| 初始值  | 0.9       | 1.8    | 0.4      | 1.0  | 1.0        |
+
+初始效率为：$\eta=78.02\% $
+初始速度三角形：
+<img src='/src/assets/readme_3.png' width=400>
+### 优化算法搜索
+
+
+使用遗传算法搜索，得到最优参数组合以及计算的最优效率
+
+<img src='/src/assets/readme_2.png' width=400>
+
+### 最终方案
+一键填入后，重绘速度三角形得到：
+
+<img src='/src/assets/readme_4.png' width=400>
+
+## 待改进：
+
+- 几种算法搜索得到的最优参数组合结果接近，考虑陷入局部最优或搜索范围太窄，需要调整
+- 优化后的效率较低
+- 添加其他参数的相关计算
 
 ## *Flet 构建应用程序
 

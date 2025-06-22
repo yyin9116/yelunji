@@ -1,5 +1,4 @@
 import flet as ft
-from flet.matplotlib_chart import MatplotlibChart
 from widget import TurbineDesignApp
 
 

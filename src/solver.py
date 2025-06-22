@@ -1,12 +1,6 @@
 import math
-from sko.GA import GA
-from sko.DE import DE
-from sko.PSO import PSO
-
 import pandas as pd
 import matplotlib.pyplot as plt
-import torch
-from torch import nn
 
 from utils import measure_search_time
 
@@ -364,6 +358,9 @@ class Solver:
             best_y: list -> 使用效率计算函数计算的出的 efficiency List
 
         """
+        from sko.GA import GA
+
+
         ga = GA(
             func=self.problem4search,
             n_dim=4,
@@ -390,6 +387,7 @@ class Solver:
     
     @measure_search_time
     def search_params_DE(self) -> list:
+        from sko.DE import DE
 
         de = DE(
             func=self.problem4search,
@@ -410,6 +408,8 @@ class Solver:
     @measure_search_time
     def search_params_PSO(self) -> list:
         """使用粒子群优化算法搜索最优参数"""
+        from sko.PSO import PSO
+
         pso = PSO(
             func=self.problem4search,
             n_dim=4,
@@ -429,6 +429,8 @@ class Solver:
 
     @measure_search_time
     def search_params_torch(self):
+        import torch
+        from torch import nn
 
         ranges = torch.tensor([
             [1.5, 2],      # psi 范围
