@@ -235,7 +235,7 @@ class Solver:
         # print('beta_1: ', beta_1, '\nbeta_2: ', beta_2)
         # print('r_beta_1: ', math.radians(beta_1), '\nr_beta_2: ', math.radians(beta_2))
         varphi, psi, omega, d_ratio, K = parmas['varphi'], parmas['psi'], parmas['omega'], parmas['d_ratio'], parmas['k']
-        print(f'正在尝试的参数组合: \nvarphi: {varphi:.2f}\npsi: {psi:.2f}\nomega: {omega:.2f}\nK: {K:.2f}')
+        # print(f'正在尝试的参数组合: \nvarphi: {varphi:.2f}\npsi: {psi:.2f}\nomega: {omega:.2f}\nK: {K:.2f}')
 
         # 计算 Kp1 与 Kp2
         if beta_1 + beta_2 < 90:
