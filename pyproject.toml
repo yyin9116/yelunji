@@ -1,6 +1,6 @@
 [project]
-name = "AeroEngine"
-version = "0.1.0"
+name = "AeroEngineDesign"
+version = "0.1.1"
 description = ""
 readme = "README.md"
 requires-python = ">=3.9"
